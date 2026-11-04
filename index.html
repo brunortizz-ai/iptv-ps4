@@ -1,0 +1,142 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TV Player PS4</title>
+<style>
+*{box-sizing:border-box}
+html,body{height:100%;margin:0;overflow:hidden}
+body{background:#101216;color:#f4f5f7;font:18px Arial,sans-serif}
+header{height:66px;padding:12px 22px;background:#191c22;border-bottom:1px solid #303640}
+h1{font-size:24px;margin:0}
+.sub{color:#aeb6c2;font-size:13px;margin-top:4px}
+main{height:calc(100vh - 66px);padding:14px 18px;max-width:1300px;margin:auto}
+.layout{height:100%;display:grid;grid-template-columns:minmax(260px,34%) minmax(0,1fr);gap:16px}
+aside{height:100%;min-height:0;display:flex;flex-direction:column}
+.listbox{background:#1a1e25;border:1px solid #333b47;border-radius:10px;padding:12px;flex:1;min-height:0;display:flex;flex-direction:column}
+h2{font-size:16px;margin:0 0 10px;color:#dfe5ed}
+#channels{overflow-y:auto;overscroll-behavior:contain;min-height:0;flex:1;padding:2px 5px 2px 1px}
+.channel{display:block;width:100%;text-align:left;background:#252b35;color:#f5f6f8;border:1px solid #3b4553;border-radius:8px;padding:11px;margin:6px 0;font-size:16px}
+.channel:focus,button:focus,input:focus{outline:3px solid #72b7ff;outline-offset:2px}
+.channel.active{background:#25476b;border-color:#69b5ff}
+.channel small{display:block;color:#b9c6d5;font-size:12px;margin-top:4px}
+.playlist{background:#1a1e25;border:1px solid #333b47;border-radius:10px;padding:10px;margin-top:10px;flex-shrink:0}
+.playlist h2{margin-bottom:5px}
+input{width:100%;padding:9px;background:#0e1116;color:white;border:1px solid #566171;border-radius:7px;font-size:14px;margin:5px 0}
+button.action{background:#e8edf4;color:#111;border:0;border-radius:7px;padding:9px 12px;font-weight:bold;margin:4px 5px 0 0;font-size:14px}
+section{height:100%;min-width:0;display:flex;flex-direction:column;gap:12px}
+.playerbox{background:#1a1e25;border:1px solid #333b47;border-radius:10px;padding:14px;position:relative}
+video{width:100%;height:auto;max-height:60vh;aspect-ratio:16/9;background:#000;border-radius:8px;display:block;object-fit:contain}
+#status{color:#a9d5ff;min-height:22px;font-size:14px;margin:8px 0 2px}
+.info{background:#1a1e25;border:1px solid #333b47;border-radius:10px;padding:12px}
+.note{font-size:12px;color:#aeb6c2;line-height:1.35;margin:4px 0}
+@media(max-width:720px){
+ html,body{height:auto;overflow:auto}
+ main{height:auto}
+ .layout{height:auto;display:flex;flex-direction:column}
+ aside{height:45vh}
+ section{height:auto}
+ video{max-height:45vh}
+}
+</style>
+</head>
+<body>
+<header>
+<h1>TV Player</h1>
+<div class="sub">Lista à esquerda • Player sempre visível à direita</div>
+</header>
+<main>
+<div class="layout">
+<aside>
+<div class="listbox">
+<h2>CANAIS — selecione com o controle</h2>
+<div id="channels">
+<button class="channel active" id="demo">▶ Vídeo de demonstração<small>Teste de reprodução HLS</small></button>
+</div>
+</div>
+<div class="playlist">
+<h2>SUA LISTA IPTV</h2>
+<input id="playlist" type="url" placeholder="Cole o link da lista M3U">
+<button class="action" id="load">Carregar lista</button>
+<p class="note">Use uma lista de canais que você tenha autorização para assistir. Alguns servidores bloqueiam acesso pelo navegador.</p>
+</div>
+</aside>
+<section>
+<div class="playerbox">
+<video id="video" controls playsinline></video>
+<p id="status">Selecione um canal na lista.</p>
+<button class="action" id="fullscreen">Tela cheia</button>
+<button class="action" id="stop">Parar</button>
+</div>
+<div class="info">
+<h2>INFORMAÇÕES</h2>
+<p class="note">A lista rola independentemente do player. Ao selecionar um canal, o vídeo permanece visível sem precisar voltar ao topo.</p>
+</div>
+</section>
+</div>
+</main>
+<script>
+(function(){
+var video=document.getElementById('video'),status=document.getElementById('status');
+var demoUrl='https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8';
+function play(url,name){
+ if(!url){status.textContent='Endereço vazio.';return;}
+ video.pause();video.removeAttribute('src');video.load();video.src=url;video.load();
+ status.textContent='Carregando: '+name;
+ var p=video.play();if(p&&p.catch){p.catch(function(){status.textContent='Aperte PLAY no vídeo. Se não iniciar, pode haver incompatibilidade.';});}
+}
+function setActive(btn){
+ var all=document.querySelectorAll('.channel'),i;
+ for(i=0;i<all.length;i++)all[i].className='channel';
+ btn.className='channel active';
+}
+document.getElementById('demo').onclick=function(){setActive(this);play(demoUrl,'Vídeo de demonstração');};
+document.getElementById('stop').onclick=function(){video.pause();video.removeAttribute('src');video.load();status.textContent='Reprodução parada.';};
+document.getElementById('fullscreen').onclick=function(){
+ if(video.requestFullscreen)video.requestFullscreen();
+ else if(video.webkitEnterFullscreen)video.webkitEnterFullscreen();
+ else status.textContent='Tela cheia não disponível.';
+};
+video.addEventListener('playing',function(){status.textContent='Reproduzindo.';});
+video.addEventListener('error',function(){status.textContent='Falha ao reproduzir. Verifique o link ou formato.';});
+function parseM3U(t){
+ var lines=t.split(/\r?\n/),items=[],name='Canal',group='Outros';
+ for(var i=0;i<lines.length;i++){
+  var line=lines[i].replace(/^\s+|\s+$/g,'');
+  if(line.indexOf('#EXTINF:')===0){
+   var comma=line.lastIndexOf(',');name=comma>=0?line.substring(comma+1):'Canal';
+   var gm=line.match(/group-title="([^"]*)"/i);group=gm?gm[1]:'Outros';
+  }else if(line&&line.charAt(0)!=='#'){items.push({name:name,group:group,url:line});name='Canal';group='Outros';}
+ }
+ return items;
+}
+document.getElementById('load').onclick=function(){
+ var url=document.getElementById('playlist').value.replace(/^\s+|\s+$/g,'');
+ if(!url){status.textContent='Cole o endereço da lista M3U.';return;}
+ status.textContent='Carregando lista...';
+ var xhr=new XMLHttpRequest();xhr.open('GET',url,true);
+ xhr.onreadystatechange=function(){
+  if(xhr.readyState===4){
+   if(xhr.status>=200&&xhr.status<300){
+    var items=parseM3U(xhr.responseText),holder=document.getElementById('channels');holder.innerHTML='';
+    if(!items.length){status.textContent='Nenhum canal identificado na lista.';return;}
+    for(var i=0;i<items.length;i++){
+     (function(item){
+      var b=document.createElement('button');b.className='channel';
+      b.appendChild(document.createTextNode(item.name));
+      var sm=document.createElement('small');sm.textContent=item.group;b.appendChild(sm);
+      b.onclick=function(){setActive(b);play(item.url,item.name);};
+      holder.appendChild(b);
+     })(items[i]);
+    }
+    status.textContent=items.length+' canais carregados. Escolha um à esquerda.';
+   }else{status.textContent='Não foi possível acessar a lista (servidor pode bloquear CORS).';}
+  }
+ };
+ try{xhr.send();}catch(e){status.textContent='Falha ao acessar o endereço.';}
+};
+})();
+</script>
+</body>
+</html>
