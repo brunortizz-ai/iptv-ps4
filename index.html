@@ -1,0 +1,134 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TV Player PS4</title>
+<style>
+*{box-sizing:border-box}
+body{margin:0;background:#101216;color:#f4f5f7;font:18px Arial,sans-serif}
+header{padding:18px 22px;background:#191c22;border-bottom:1px solid #303640}
+h1{font-size:25px;margin:0}
+.sub{color:#aeb6c2;font-size:14px;margin-top:5px}
+main{max-width:1100px;margin:auto;padding:18px}
+.layout{display:flex;gap:18px;align-items:flex-start}
+aside{width:310px;flex:0 0 310px}
+section{flex:1;min-width:0}
+.panel{background:#1a1e25;border:1px solid #333b47;border-radius:10px;padding:14px;margin-bottom:14px}
+h2{font-size:17px;margin:0 0 12px;color:#dfe5ed}
+.channel{display:block;width:100%;text-align:left;background:#252b35;color:#f5f6f8;border:1px solid #3b4553;border-radius:8px;padding:13px;margin:7px 0;font-size:17px}
+.channel:focus,button:focus,input:focus{outline:3px solid #72b7ff;outline-offset:2px}
+.channel.active{background:#25476b;border-color:#69b5ff}
+.channel small{display:block;color:#b9c6d5;font-size:13px;margin-top:4px}
+video{width:100%;max-height:62vh;background:#000;border-radius:8px;display:block}
+button.action{background:#e8edf4;color:#111;border:0;border-radius:7px;padding:12px 15px;font-weight:bold;margin:7px 6px 0 0;font-size:16px}
+input{width:100%;padding:12px;background:#0e1116;color:white;border:1px solid #566171;border-radius:7px;font-size:16px;margin:7px 0}
+.note{font-size:13px;color:#aeb6c2;line-height:1.4}
+#status{color:#a9d5ff;min-height:24px;font-size:14px}
+@media(max-width:700px){.layout{display:block}aside{width:100%}main{padding:12px}}
+</style>
+</head>
+<body>
+<header>
+<h1>TV Player</h1>
+<div class="sub">Player leve para navegador do PlayStation 4</div>
+</header>
+<main>
+<div class="layout">
+<aside>
+<div class="panel">
+<h2>CANAIS</h2>
+<button class="channel active" id="demo">
+▶ Vídeo de demonstração
+<small>Teste de reprodução HLS</small>
+</button>
+<div id="channels"></div>
+</div>
+<div class="panel">
+<h2>SUA LISTA IPTV</h2>
+<input id="playlist" type="url" placeholder="Cole o link da lista M3U">
+<button class="action" id="load">Carregar lista</button>
+<p class="note">Você ainda não precisa ter uma assinatura. Quando tiver uma lista M3U autorizada, poderá testar aqui. Alguns servidores bloqueiam carregamento externo no navegador (CORS).</p>
+</div>
+</aside>
+<section>
+<div class="panel">
+<video id="video" controls playsinline></video>
+<p id="status">Selecione o vídeo de demonstração para começar.</p>
+<button class="action" id="fullscreen">Tela cheia</button>
+<button class="action" id="stop">Parar</button>
+</div>
+<div class="panel">
+<h2>INFORMAÇÕES</h2>
+<p class="note">Este player não fornece canais, filmes ou séries. Ele reproduz transmissões que você adicionar e tenha autorização para assistir. A compatibilidade depende do formato do link e do navegador do PS4.</p>
+</div>
+</section>
+</div>
+</main>
+<script>
+(function(){
+var video=document.getElementById('video');
+var status=document.getElementById('status');
+var demoUrl='https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8';
+var current=null;
+function play(url,name){
+ if(!url){status.innerHTML='Endereço de transmissão vazio.';return;}
+ video.pause();video.removeAttribute('src');video.load();video.src=url;video.load();
+ current=url;status.innerHTML='Carregando: '+name;
+ var p=video.play();if(p&&p.catch){p.catch(function(){status.innerHTML='Aperte PLAY no vídeo. Se não iniciar, este formato pode não ser compatível.';});}
+}
+document.getElementById('demo').onclick=function(){
+ play(demoUrl,'Vídeo de demonstração');
+ var b=document.getElementById('demo');b.className='channel active';
+};
+document.getElementById('stop').onclick=function(){video.pause();video.removeAttribute('src');video.load();status.innerHTML='Reprodução parada.';};
+document.getElementById('fullscreen').onclick=function(){
+ if(video.requestFullscreen){video.requestFullscreen();}
+ else if(video.webkitEnterFullscreen){video.webkitEnterFullscreen();}
+ else{status.innerHTML='Tela cheia não disponível neste navegador.';}
+};
+video.addEventListener('playing',function(){status.innerHTML='Reproduzindo.';});
+video.addEventListener('error',function(){status.innerHTML='Falha ao reproduzir. Verifique o link ou a compatibilidade do formato.';});
+function parseM3U(text){
+ var lines=text.split(/\r?\n/),items=[],name='Canal',group='Outros',i,line,url;
+ for(i=0;i<lines.length;i++){
+  line=lines[i].replace(/^\s+|\s+$/g,'');
+  if(line.indexOf('#EXTINF:')===0){
+   var comma=line.lastIndexOf(',');
+   name=comma>=0?line.substring(comma+1):'Canal';
+   var gm=line.match(/group-title="([^"]*)"/i);group=gm?gm[1]:'Outros';
+  }else if(line && line.charAt(0)!=='#'){
+   items.push({name:name,group:group,url:line});name='Canal';group='Outros';
+  }
+ }
+ return items;
+}
+document.getElementById('load').onclick=function(){
+ var url=document.getElementById('playlist').value.replace(/^\s+|\s+$/g,'');
+ if(!url){status.innerHTML='Cole o endereço da sua lista M3U.';return;}
+ status.innerHTML='Tentando carregar a lista...';
+ var xhr=new XMLHttpRequest();
+ xhr.open('GET',url,true);
+ xhr.onreadystatechange=function(){
+  if(xhr.readyState===4){
+   if(xhr.status>=200&&xhr.status<300){
+    var items=parseM3U(xhr.responseText),holder=document.getElementById('channels');holder.innerHTML='';
+    if(!items.length){status.innerHTML='A lista abriu, mas nenhum canal foi identificado.';return;}
+    var i,b;
+    for(i=0;i<items.length;i++){
+     (function(item){
+      b=document.createElement('button');b.className='channel';b.innerHTML=item.name+'<small>'+item.group+'</small>';
+      b.onclick=function(){var all=holder.getElementsByTagName('button'),j;for(j=0;j<all.length;j++){all[j].className='channel';}b.className='channel active';play(item.url,item.name);};
+      holder.appendChild(b);
+     })(items[i]);
+    }
+    status.innerHTML=items.length+' canais carregados.';
+   }else{status.innerHTML='Não foi possível acessar a lista. O servidor pode bloquear acesso externo (CORS) ou exigir autenticação.';}
+  }
+ };
+ try{xhr.send();}catch(e){status.innerHTML='Não foi possível acessar esse endereço.';}
+};
+})();
+</script>
+</body>
+</html>
